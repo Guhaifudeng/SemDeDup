@@ -4,6 +4,7 @@ from datasets import load_dataset
 from sentence_transformers import SentenceTransformer
 from scipy.spatial.distance import cdist
 from sklearn.preprocessing import normalize
+from sklearn.metrics.pairwise import cosine_similarity
 
 #helpers
 def embed_text(examples):
@@ -16,7 +17,7 @@ def embed_text(examples):
     return {'embeddings': embeddings}
 
 def sort_by_centroid_distance(embeddings, centroid, descending=True):
-    distances = cdist(embeddings, centroid.reshape(1, -1), 'cosine')
+    distances = cdist(embeddings, centroid.reshape(1, -1), 'euclidean')
     sorted_indices = np.argsort(distances, axis=0)
     if descending:
         sorted_indices = sorted_indices[::-1]
@@ -77,16 +78,13 @@ for i in range(num_clusters):
     )
 
     # compute the pairwise cosine similarity between embeddings
-    pairwise_sim_matrix = np.dot(cluster_i_embeddings, cluster_i_embeddings.T)
+    pairwise_sim_matrix = cosine_similarity(cluster_i_embeddings)
 
     # get upper triangular part of the matrix (excluding the diagonal)
     triu_sim_matrix = np.triu(pairwise_sim_matrix, k=1)
 
     # find max value in each column
-    M = np.max(triu_sim_matrix, axis=0)
-
-    # filter out embeddings where max similarity is above the threshold
-    unique_indices = np.where(M <= epsilon)[0]
+    M = np.max(triu_sim_matrix, axis=0)[0]
 
     # Keep the unique embeddings
-    unique_cluster_i_embeddings = cluster_i_embeddings[unique_indices]
+    points_to_keep_from_cluster_i = cluster_i_embeddings[M <= 1 - epsilon]
