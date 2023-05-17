@@ -1,0 +1,8 @@
+torch
+scikit-learn
+numpy
+scipy
+sentence-transformers
+transformers
+datasets
+faiss-gpu
