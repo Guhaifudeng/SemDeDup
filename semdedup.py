@@ -22,6 +22,9 @@ def sort_by_centroid_distance(embeddings, centroid, descending=True):
 # Load the dataset
 dataset = load_dataset("openwebtext", split="train")
 
+# Save the original length
+original_length = len(dataset)
+
 # Get the number of GPUs available
 num_gpus = cuda.device_count()
 
@@ -43,14 +46,16 @@ def embed_text(examples):
 
     return {"embeddings": embeddings}
 
-
 dataset = dataset.map(embed_text, batched=True, batch_size=16)
 
-# Let's get the embeddings in a suitable format for clustering
+# Compare the lengths
+assert original_length == len(dataset), "The datasets do not have the same length."
+
+# get the embeddings for clustering
 embeddings = [embedding for example in dataset for embedding in example["embeddings"]]
 embeddings = np.array(embeddings).astype("float32")  # FAISS uses float32
 
-# Normalize the embeddings to unit length
+# Normalize the embeddings
 embeddings = normalize(embeddings)
 
 # perform clustering with FAISS
@@ -65,11 +70,11 @@ d = embeddings.shape[1]  # dimension
 cpu_index = faiss.Kmeans(d, num_clusters, niter=niter, verbose=verbose, spherical=True)
 cpu_index.train(embeddings)
 
-# Define GPU resources
+# Number of GPU resources
 ngpus = faiss.get_num_gpus()
 res = [faiss.StandardGpuResources() for _ in range(ngpus)]
 
-# Define cloner options
+# Cloner options
 co = faiss.GpuMultipleClonerOptions()
 co.shard = True
 
