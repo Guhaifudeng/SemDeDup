@@ -1,10 +1,12 @@
 import faiss
 import numpy as np
+import torch
 from datasets import load_dataset
 from scipy.spatial.distance import cdist
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
+from torch import cuda
 
 # helpers
 
@@ -17,21 +19,27 @@ def sort_by_centroid_distance(embeddings, centroid, descending=True):
     return embeddings[sorted_indices.flatten()]
 
 
-# Sentence transformer model for embeddings
-model = SentenceTransformer("sentence-transformers/sentence-t5-xxl")
-
 # Load the dataset
 dataset = load_dataset("openwebtext", split="train")
 
-# Apply the embed function to the 'text' column
+# Get the number of GPUs available
+num_gpus = cuda.device_count()
+
+# Initialize SentenceTransformer models for each GPU
+models = [
+    SentenceTransformer("sentence-transformers/sentence-t5-xxl").to(f"cuda:{i}")
+    for i in range(num_gpus)
+]
 
 
 def embed_text(examples):
-    # Get the embeddings for the text
-    embeddings = model.encode(examples["text"])
+    # Determine which GPU this batch will be sent to
+    gpu_id = torch.tensor(range(len(examples))).fmod_(num_gpus)
 
-    # Convert to list as datasets work better with list type
-    embeddings = embeddings.tolist()
+    embeddings = []
+    for ex, id in zip(examples["text"], gpu_id):
+        # Get the embeddings for the text
+        embeddings.append(models[id].encode(ex).tolist())
 
     return {"embeddings": embeddings}
 
@@ -48,7 +56,7 @@ embeddings = normalize(embeddings)
 # perform clustering with FAISS
 num_clusters = 11000
 niter = 20
-epsilon = 0.9  # Define the similarity threshold
+epsilon = 0.09  # Define the similarity threshold
 niter = 20
 verbose = True
 d = embeddings.shape[1]  # dimension
@@ -103,7 +111,9 @@ for i in range(num_clusters):
 points_to_keep = np.array(points_to_keep)
 
 # Filter the original dataset
-filtered_dataset = dataset.filter(lambda example, idx: idx in points_to_keep, with_indices=True)
+filtered_dataset = dataset.filter(
+    lambda example, idx: idx in points_to_keep, with_indices=True
+)
 
 print("Original dataset length: ", len(dataset))
 print("Filtered dataset length: ", len(filtered_dataset))
