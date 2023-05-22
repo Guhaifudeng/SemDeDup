@@ -66,23 +66,12 @@ verbose = True
 d = embeddings.shape[1]  # dimension
 
 # Initialize the clustering
-cpu_index = faiss.Kmeans(d, num_clusters, niter=niter, verbose=verbose, spherical=True)
-cpu_index.train(embeddings)
+kmeans = faiss.Kmeans(d, num_clusters, niter=niter, verbose=verbose, spherical=True, gpu=True)
+kmeans.train(embeddings)
 
-# Number of GPU resources
-ngpus = faiss.get_num_gpus()
-res = [faiss.StandardGpuResources() for _ in range(ngpus)]
-
-# Cloner options
-co = faiss.GpuMultipleClonerOptions()
-co.shard = True
-
-# Initialize the index. clone index to GPUs
-index = faiss.index_cpu_to_all_gpus(cpu_index, co=co, resources=res)
-
-D, I = index.search(embeddings, 1)
+D, I = kmeans.index.search(embeddings, 1)
 cluster_labels = I.reshape(-1)
-cluster_centers = index.centroids
+cluster_centers = kmeans.centroids
 
 points_to_keep = []
 
