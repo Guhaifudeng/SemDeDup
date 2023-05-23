@@ -3,10 +3,15 @@ import numpy as np
 import torch
 from datasets import load_dataset
 from scipy.spatial.distance import cdist
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import SentenceTransformer, LoggingHandler
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
-from tqdm import tqdm
+import logging
+
+logging.basicConfig(format='%(asctime)s - %(message)s',
+                    datefmt='%Y-%m-%d %H:%M:%S',
+                    level=logging.INFO,
+                    handlers=[LoggingHandler()])
 
 # helpers
 
@@ -34,14 +39,8 @@ sentences = dataset["text"]
 #Start the multi-process pool on all available CUDA devices
 pool = model.start_multi_process_pool()
 
-print("Start Embedding")
-#embeddings = model.encode(sentences)
-
 #Compute the embeddings using the multi-process pool
 embeddings = model.encode_multi_process(sentences, pool, batch_size=16)
-print("Embeddings computed. Shape:", embeddings.shape)
-
-print("Finished Embedding")
 
 embeddings_list = embeddings.tolist()
 
@@ -49,7 +48,6 @@ dataset = dataset.add_column("embeddings", embeddings_list)
 
 # get the embeddings for clustering
 embeddings = [embedding for example in dataset for embedding in example["embeddings"]]
-embeddings = np.array(embeddings).astype("float32")  # FAISS uses float32
 
 # Normalize the embeddings
 embeddings = normalize(embeddings)
