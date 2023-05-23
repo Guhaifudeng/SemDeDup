@@ -6,7 +6,7 @@ from scipy.spatial.distance import cdist
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
-from torch import cuda
+from tqdm import tqdm
 
 # helpers
 
@@ -25,31 +25,27 @@ dataset = load_dataset("openwebtext", split="train")
 # Save the original length
 original_length = len(dataset)
 
-# Get the number of GPUs available
-num_gpus = cuda.device_count()
+dataset = load_dataset("conceptofmind/facebook_ads", split="train")
 
-# Initialize SentenceTransformer models for each GPU
-models = [
-    SentenceTransformer("sentence-transformers/sentence-t5-xxl").to(f"cuda:{i}")
-    for i in range(num_gpus)
-]
+model = SentenceTransformer('sentence-transformers/sentence-t5-xxl')
 
+sentences = dataset["text"]
 
-def embed_text(examples):
-    # Determine which GPU this batch will be sent to
-    gpu_id = torch.tensor(range(len(examples))).fmod_(num_gpus)
+#Start the multi-process pool on all available CUDA devices
+pool = model.start_multi_process_pool()
 
-    embeddings = []
-    for ex, id in zip(examples["text"], gpu_id):
-        # Get the embeddings for the text
-        embeddings.append(models[id].encode(ex).tolist())
+print("Start Embedding")
+#embeddings = model.encode(sentences)
 
-    return {"embeddings": embeddings}
+#Compute the embeddings using the multi-process pool
+embeddings = model.encode_multi_process(sentences, pool, batch_size=16)
+print("Embeddings computed. Shape:", embeddings.shape)
 
-dataset = dataset.map(embed_text, batched=True, batch_size=16)
+print("Finished Embedding")
 
-# Compare the lengths
-assert original_length == len(dataset), "The datasets do not have the same length."
+embeddings_list = embeddings.tolist()
+
+dataset = dataset.add_column("embeddings", embeddings_list)
 
 # get the embeddings for clustering
 embeddings = [embedding for example in dataset for embedding in example["embeddings"]]
