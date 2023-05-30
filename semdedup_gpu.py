@@ -1,20 +1,11 @@
 import faiss
 import numpy as np
-import torch
 from datasets import load_dataset
 from scipy.spatial.distance import cdist
-from sentence_transformers import SentenceTransformer, LoggingHandler
 from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.preprocessing import normalize
-import logging
-
-logging.basicConfig(format='%(asctime)s - %(message)s',
-                    datefmt='%Y-%m-%d %H:%M:%S',
-                    level=logging.INFO,
-                    handlers=[LoggingHandler()])
+from cuml.preprocessing import normalize
 
 # helpers
-
 
 def sort_by_centroid_distance(embeddings, centroid, descending=True):
     distances = cdist(embeddings, centroid.reshape(1, -1), "euclidean")
@@ -25,29 +16,10 @@ def sort_by_centroid_distance(embeddings, centroid, descending=True):
 
 
 # Load the dataset
-dataset = load_dataset("openwebtext", split="train")
-
-# Save the original length
-original_length = len(dataset)
-
-dataset = load_dataset("conceptofmind/facebook_ads", split="train")
-
-model = SentenceTransformer('sentence-transformers/sentence-t5-xxl')
-
-sentences = dataset["text"]
-
-#Start the multi-process pool on all available CUDA devices
-pool = model.start_multi_process_pool()
-
-#Compute the embeddings using the multi-process pool
-embeddings = model.encode_multi_process(sentences, pool, batch_size=16)
-
-embeddings_list = embeddings.tolist()
-
-dataset = dataset.add_column("embeddings", embeddings_list)
+dataset = load_dataset("openwebtext_emb", split="train")
 
 # get the embeddings for clustering
-embeddings = [embedding for example in dataset for embedding in example["embeddings"]]
+embeddings = dataset["embedding"]
 
 # Normalize the embeddings
 embeddings = normalize(embeddings)
@@ -92,15 +64,3 @@ for i in range(num_clusters):
 
     # add the points to keep to the list
     points_to_keep.extend(points_to_keep_from_cluster_i)
-
-# convert to numpy array
-
-points_to_keep = np.array(points_to_keep)
-
-# Filter the original dataset
-filtered_dataset = dataset.filter(
-    lambda example, idx: idx in points_to_keep, with_indices=True
-)
-
-print("Original dataset length: ", len(dataset))
-print("Filtered dataset length: ", len(filtered_dataset))
