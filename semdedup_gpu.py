@@ -3,7 +3,7 @@ import numpy as np
 from datasets import load_dataset
 from scipy.spatial.distance import cdist
 from sklearn.metrics.pairwise import cosine_similarity
-from cuml.preprocessing import normalize
+from sklearn.preprocessing import normalize
 
 # helpers
 
