@@ -1,7 +1,6 @@
 from sentence_transformers import SentenceTransformer, LoggingHandler
 from datasets import load_dataset
 from sklearn.preprocessing import normalize
-import torch
 import time
 
 import logging
@@ -15,7 +14,7 @@ if __name__ == '__main__':
     # Load the dataset
     dataset = load_dataset("conceptofmind/facebook_ads", split="train")
 
-    model = SentenceTransformer('sentence-transformers/sentence-t5-xxl')
+    model = SentenceTransformer('sentence-transformers/all-mpnet-base-v2')
 
     sentences = dataset["text"]
 
