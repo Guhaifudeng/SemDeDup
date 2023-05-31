@@ -1,3 +1,6 @@
+import json
+import os
+
 import faiss
 import numpy as np
 from datasets import load_dataset
@@ -6,6 +9,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
 
 # helpers
+
 
 def sort_by_centroid_distance(embeddings, centroid, descending=True):
     distances = cdist(embeddings, centroid.reshape(1, -1), "euclidean")
@@ -32,7 +36,9 @@ verbose = True
 d = embeddings.shape[1]  # dimension
 
 # Initialize the clustering
-kmeans = faiss.Kmeans(d, num_clusters, niter=niter, verbose=verbose, spherical=True, gpu=True)
+kmeans = faiss.Kmeans(
+    d, num_clusters, niter=niter, verbose=verbose, spherical=True, gpu=True
+)
 kmeans.train(embeddings)
 
 D, I = kmeans.index.search(embeddings, 1)
@@ -42,6 +48,13 @@ cluster_centers = kmeans.centroids
 points_to_keep = []
 
 for i in range(num_clusters):
+    checkpoint_file = f"points_to_keep_checkpoint_{i}.json"
+
+    # Skip if checkpoint already exists
+    if os.path.isfile(checkpoint_file):
+        print(f"Checkpoint {checkpoint_file} already exists. Skipping...")
+        continue
+
     # filter embeddings of the current cluster
     cluster_i_embeddings = embeddings[cluster_labels == i]
 
@@ -64,3 +77,7 @@ for i in range(num_clusters):
 
     # add the points to keep to the list
     points_to_keep.extend(points_to_keep_from_cluster_i)
+
+    if i % 1000 == 0:
+        with open(checkpoint_file, "w") as f:
+            json.dump(points_to_keep, f)

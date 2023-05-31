@@ -29,14 +29,12 @@ if __name__ == '__main__':
     embeddings = model.encode_multi_process(
         sentences, 
         pool, 
-        batch_size=32,
+        batch_size=96,
     )
 
     # Print the time taken
     end_time = time.time()
     print("Time taken:", end_time - start_time, "seconds")
-
-    embeddings = normalize(embeddings)
 
     embeddings_list = embeddings.tolist()
 
